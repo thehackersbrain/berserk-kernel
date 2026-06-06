@@ -1,10 +1,10 @@
-# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+# Maintainer: Gaurav Raj <release@berserkarch.org>
 
 pkgbase=berserk-kernel
 pkgver=7.0.11.arch1
-pkgrel=1
-pkgdesc="BerserkArch Linux Kernel"
-url='https://github.com/archlinux/linux'
+pkgrel=2
+pkgdesc="Berserk Kernel"
+url='https://github.com/berserkarch/berserk-kernel'
 arch=(
   x86_64
 )
@@ -43,11 +43,15 @@ options=(
 )
 _srcname=linux-${pkgver%.*}
 _srctag=v${pkgver%.*}-${pkgver##*.}
+_archurl="https://github.com/archlinux/linux"
 source=(
   https://cdn.kernel.org/pub/linux/kernel/v${pkgver%%.*}.x/${_srcname}.tar.{xz,sign}
-  $url/releases/download/$_srctag/linux-$_srctag.patch.zst{,.sig}
+  $_archurl/releases/download/$_srctag/linux-$_srctag.patch.zst{,.sig}
 )
-source_x86_64=(config.berserk)
+source_x86_64=(
+  config.x86_64
+  berserk.config
+)
 validpgpkeys=(
   ABAF11C65A2970B130ABE3C479BE3E4300411886  # Linus Torvalds
   647F28654894E3BD457199BE38DBBDC86092693E  # Greg Kroah-Hartman
@@ -57,14 +61,14 @@ sha256sums=('e56c8356dda01136a6041c6ef832bd0ec99bd2d35dff97832aa5ec10ed014304'
             'SKIP'
             '694e74e08031d1388c0ae7ba3e44d9dfcb1888ed45ae1eb97f9c4160953042e5'
             'SKIP')
-sha256sums_x86_64=('4730d73b0cadb5f075d3e9c3b6318988bf44292f39d83a714431c154be41aeba')
+sha256sums_x86_64=('SKIP'
+                   'SKIP')
 b2sums=('e198c4edf9cc681c602e4c0bd8d92ff9d93433c95a525d8d94e5ad59aa9da2299a5048690841263e925835e3960d621fab137afd3522020f58d4fe1a09041ac7'
         'SKIP'
         '17d5fbaf51a1930dbacadcf3eacc286e471e44fd1526516b7fa51f7e83b62c9d24e69e1cf9c5c111288160964b8e44d1138306de2ebc84b242e33f09d6d6e13a'
         'SKIP')
-b2sums_x86_64=('a3569058fb5d86df604568f3746c98285b23bd5f4d69abc34df84e05b29c73b4a2c55f589259ec7375591c825d09525bf7d4f5c29d5e3a5209dfaabaf834795a')
-
-# https://www.kernel.org/pub/linux/kernel/v7.x/sha256sums.asc
+b2sums_x86_64=('SKIP'
+               'SKIP')
 
 export KBUILD_BUILD_HOST=berserkarch
 export KBUILD_BUILD_USER=berserk
@@ -76,7 +80,7 @@ prepare() {
 
   echo "Setting version..."
   echo "-$pkgrel" > localversion.10-pkgrel
-  echo "${pkgbase#linux}" > localversion.20-pkgname
+  echo "-berserk" > localversion.20-pkgname
 
   local src
   for src in "${source[@]}"; do
@@ -88,10 +92,30 @@ prepare() {
     patch -Np1 < "../$src"
   done
 
+  # Clear Arch's EXTRAVERSION so uname -r shows clean 7.0.11-berserk
+  echo "Clearing Arch EXTRAVERSION..."
+  sed -i 's/^EXTRAVERSION = .*/EXTRAVERSION =/' Makefile
+
+  # Remove Arch's localversion to prevent polluting uname -r
+  rm -f localversion.05-archlinux 2>/dev/null || true
+
+  # Apply berserk-specific patches if any
+  if compgen -G "../patches/*.patch" > /dev/null 2>&1; then
+    for p in ../patches/*.patch; do
+      echo "Applying berserk patch $(basename $p)..."
+      patch -Np1 < "$p"
+    done
+  fi
+
   echo "Setting config..."
-  cp ../config.berserk .config
+  cp ../config.x86_64 .config
   make olddefconfig
-  diff -u ../config.berserk .config || :
+
+  echo "Merging berserk config fragment..."
+  ./scripts/kconfig/merge_config.sh -m .config ../berserk.config
+  make olddefconfig
+
+  diff -u ../config.x86_64 .config || :
 
   make -s kernelrelease > version
   echo "Prepared $pkgbase version $(<version)"
@@ -132,18 +156,14 @@ _package() {
   local modulesdir="$pkgdir/usr/lib/modules/$(<version)"
 
   echo "Installing boot image..."
-  # systemd expects to find the kernel here to allow hibernation
-  # https://github.com/systemd/systemd/commit/edda44605f06a41fb86b7ab8128dcf99161d2344
   install -Dm644 "$(make -s image_name)" "$modulesdir/vmlinuz"
 
-  # Used by mkinitcpio to name the kernel
   echo "$pkgbase" | install -Dm644 /dev/stdin "$modulesdir/pkgbase"
 
   echo "Installing modules..."
   ZSTD_CLEVEL=19 make INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 \
-    DEPMOD=/doesnt/exist modules_install  # Suppress depmod
+    DEPMOD=/doesnt/exist modules_install
 
-  # remove build link
   rm "$modulesdir"/build
 }
 
@@ -194,16 +214,10 @@ _package-headers() {
 
   install -Dt "$builddir/drivers/md" -m644 drivers/md/*.h
   install -Dt "$builddir/net/mac80211" -m644 net/mac80211/*.h
-
-  # https://bugs.archlinux.org/task/13146
   install -Dt "$builddir/drivers/media/i2c" -m644 drivers/media/i2c/msp3400-driver.h
-
-  # https://bugs.archlinux.org/task/20402
   install -Dt "$builddir/drivers/media/usb/dvb-usb" -m644 drivers/media/usb/dvb-usb/*.h
   install -Dt "$builddir/drivers/media/dvb-frontends" -m644 drivers/media/dvb-frontends/*.h
   install -Dt "$builddir/drivers/media/tuners" -m644 drivers/media/tuners/*.h
-
-  # https://bugs.archlinux.org/task/71392
   install -Dt "$builddir/drivers/iio/common/hid-sensors" -m644 drivers/iio/common/hid-sensors/*.h
 
   echo "Installing KConfig files..."
@@ -216,8 +230,7 @@ _package-headers() {
   fi
 
   echo "Installing unstripped VDSO..."
-  make INSTALL_MOD_PATH="$pkgdir/usr" vdso_install \
-    link=  # Suppress build-id symlinks
+  make INSTALL_MOD_PATH="$pkgdir/usr" vdso_install link=
 
   echo "Removing unneeded architectures..."
   local arch
@@ -240,14 +253,10 @@ _package-headers() {
   local file
   while read -rd '' file; do
     case "$(file -Sib "$file")" in
-      application/x-sharedlib\;*)      # Libraries (.so)
-        strip -v $STRIP_SHARED "$file" ;;
-      application/x-archive\;*)        # Libraries (.a)
-        strip -v $STRIP_STATIC "$file" ;;
-      application/x-executable\;*)     # Binaries
-        strip -v $STRIP_BINARIES "$file" ;;
-      application/x-pie-executable\;*) # Relocatable binaries
-        strip -v $STRIP_SHARED "$file" ;;
+      application/x-sharedlib\;*)      strip -v $STRIP_SHARED "$file" ;;
+      application/x-archive\;*)        strip -v $STRIP_STATIC "$file" ;;
+      application/x-executable\;*)     strip -v $STRIP_BINARIES "$file" ;;
+      application/x-pie-executable\;*) strip -v $STRIP_SHARED "$file" ;;
     esac
   done < <(find "$builddir" -type f -perm -u+x ! -name vmlinux -print0)
 
