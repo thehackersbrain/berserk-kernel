@@ -8,3 +8,4 @@ src/
 *.tar.*
 
 localversion.20-pkgname
+.SRCINFO
