@@ -2,7 +2,7 @@
 
 pkgbase=berserk-kernel
 pkgver=7.0.11.arch1
-pkgrel=2
+pkgrel=1
 pkgdesc="Berserk Kernel"
 url='https://github.com/berserkarch/berserk-kernel'
 arch=(
@@ -61,14 +61,14 @@ sha256sums=('e56c8356dda01136a6041c6ef832bd0ec99bd2d35dff97832aa5ec10ed014304'
             'SKIP'
             '694e74e08031d1388c0ae7ba3e44d9dfcb1888ed45ae1eb97f9c4160953042e5'
             'SKIP')
-sha256sums_x86_64=('SKIP'
-                   'SKIP')
+sha256sums_x86_64=('4730d73b0cadb5f075d3e9c3b6318988bf44292f39d83a714431c154be41aeba'
+                   'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
 b2sums=('e198c4edf9cc681c602e4c0bd8d92ff9d93433c95a525d8d94e5ad59aa9da2299a5048690841263e925835e3960d621fab137afd3522020f58d4fe1a09041ac7'
         'SKIP'
         '17d5fbaf51a1930dbacadcf3eacc286e471e44fd1526516b7fa51f7e83b62c9d24e69e1cf9c5c111288160964b8e44d1138306de2ebc84b242e33f09d6d6e13a'
         'SKIP')
-b2sums_x86_64=('SKIP'
-               'SKIP')
+b2sums_x86_64=('a3569058fb5d86df604568f3746c98285b23bd5f4d69abc34df84e05b29c73b4a2c55f589259ec7375591c825d09525bf7d4f5c29d5e3a5209dfaabaf834795a'
+               '786a02f742015903c6c6fd852552d272912f4740e15847618a86e217f71f5419d25e1031afee585313896444934eb04b903a685b1448b755d56f701afe9be2ce')
 
 export KBUILD_BUILD_HOST=berserkarch
 export KBUILD_BUILD_USER=berserk
